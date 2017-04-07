@@ -440,10 +440,6 @@ class Component(ObservableMixin):
 
         self._plugins = plugins
 
-    def on_leave(self, session, details):
-        for p in self.plugins:
-            p._on_session_leave(session, details)
-
     def _can_reconnect(self):
         # check if any of our transport has any reconnect attempt left
         for transport in self._transports:
