@@ -344,7 +344,7 @@ class Component(ObservableMixin):
             self.on('join', do_registration)
         return decorator
 
-    def __init__(self, main=None, transports=None, config=None, realm=u'default', extra=None, authentication=None):
+    def __init__(self, main=None, transports=None, config=None, realm=u'default', extra=None, authentication=None, plugins=None):
         """
         :param main: After a transport has been connected and a session
             has been established and joined to a realm, this (async)
@@ -383,6 +383,9 @@ class Component(ObservableMixin):
 
         :param authentication: configuration of authenticators
         :type authentication: dict mapping auth_type to dict
+
+        :params plugins: Plugins to manage session lifecycle for
+        :type plugins: list of subclassed PluginMixin instances
         """
         self.set_valid_events(
             [
@@ -434,6 +437,12 @@ class Component(ObservableMixin):
 
         self._realm = realm
         self._extra = extra
+
+        self._plugins = plugins
+
+    def on_leave(self, session, details):
+        for p in self.plugins:
+            p._on_session_leave(session, details)
 
     def _can_reconnect(self):
         # check if any of our transport has any reconnect attempt left
@@ -535,6 +544,11 @@ class Component(ObservableMixin):
                         else:
                             txaio.reject(done, RuntimeError('transport closed uncleanly'))
                 session.on('disconnect', on_disconnect)
+
+                if self._plugins:
+                    for p in self._plugins:
+                        session.on('join', p._on_session_join)
+                        session.on('leave', p._on_session_leave)
 
                 # return the fresh session object
                 return session
